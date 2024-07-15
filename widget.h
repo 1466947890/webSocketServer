@@ -31,7 +31,6 @@ private slots:
     void processTextMessage(QString msg);
     void socketDisconnected();
 
-
 private:
     Ui::Widget *ui;
     QWebSocketServer *webSocketServer;
@@ -40,6 +39,7 @@ private:
 
 private:
     void sendContacts(QWebSocket* pClient);
+    void sendMsg(QJsonObject obj, QWebSocket* pClient);
 };
 
 #endif // WIDGET_H

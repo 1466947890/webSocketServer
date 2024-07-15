@@ -88,13 +88,14 @@ void Widget::processTextMessage(QString msg)
      */
     QJsonObject obj = doc.object();
     int type = obj["type"].toInt();
-    qDebug() << type;
+//    qDebug() << type;
     switch (type) {
     case 1:
         // 执行获取联系人列表
         sendContacts(pClient);
         break;
     case 2:
+        sendMsg(obj, pClient);
         // 执行消息转发
         break;
     }
@@ -117,13 +118,36 @@ void Widget::sendContacts(QWebSocket *pClient)
     QJsonArray contactArr;
     for(int i=0; i<m_clients.size(); i++)
     {
-        contactArr.append(QString("%1:%2").arg(pClient->peerAddress().toString()).arg(pClient->peerPort()));
+        QWebSocket* client = m_clients.at(i);
+        contactArr.append(QString("%1:%2").arg(client->peerAddress().toString()).arg(client->peerPort()));
     }
     info.insert("type", 1);
     info.insert("contacts", contactArr);
     QJsonDocument doc(info);
     pClient->sendTextMessage(doc.toJson());
 
+}
+
+void Widget::sendMsg(QJsonObject obj, QWebSocket *pClient)
+{
+    QString msg = obj["msg"].toString();
+    QString contact = obj["contact"].toString();
+    // 当前要聊天的对象
+    for(int i=0; i < m_clients.size(); i++)
+    {
+        QWebSocket* client = m_clients.at(i);
+        QString clienName = QString("%1:%2").arg(client->peerAddress().toString()).arg(client->peerPort());
+        if(clienName == contact)
+        {
+            QJsonObject obj;
+            obj.insert("type", 2);
+            obj.insert("msg", msg);
+            obj.insert("from", contact);
+            QJsonDocument doc(obj);
+            client->sendTextMessage(doc.toJson());
+            break;
+        }
+    }
 }
 
 
