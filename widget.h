@@ -5,6 +5,9 @@
 #include <QDebug>
 #include <QWebSocket>
 #include <QWebSocketServer>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonDocument>
 #include <QList>
 
 namespace Ui {
@@ -34,6 +37,9 @@ private:
     QWebSocketServer *webSocketServer;
     QWebSocket *pSocket;
     QList<QWebSocket *> m_clients;
+
+private:
+    void sendContacts(QWebSocket* pClient);
 };
 
 #endif // WIDGET_H

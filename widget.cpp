@@ -7,7 +7,6 @@ Widget::Widget(QWidget *parent) :
 {
     ui->setupUi(this);
     ui->pushButton_close->setEnabled(false);
-
     webSocketServer = new QWebSocketServer("server", QWebSocketServer::NonSecureMode);
 
 }
@@ -41,8 +40,16 @@ void Widget::on_pushButton_close_clicked()
     webSocketServer->close();
 }
 
+// 群发功能
 void Widget::on_pushButton_send_clicked()
 {
+    QString msg = ui->textEdit_sendMsg->toPlainText();
+    for(int i=0; i < m_clients.size(); i++)
+    {
+        QWebSocket* m_client = m_clients.at(i);
+        qDebug() << m_client->peerAddress()<< ":" << m_client->peerPort();
+        m_client->sendTextMessage(msg);
+    }
 
 }
 
@@ -65,6 +72,32 @@ void Widget::processTextMessage(QString msg)
     QWebSocket *pClient = qobject_cast<QWebSocket*> (sender());
     QString receiveMsg = QString("clientID: %1:%2  received: %3").arg(pClient->peerAddress().toString()).arg(pClient->peerPort()).arg(msg);
     ui->listWidget_reciveMsg->addItem(receiveMsg);
+    // 接下来对websocekt消息进行处理
+    // 转换json数据为可读数据
+    QJsonDocument doc = QJsonDocument::fromJson(msg.toUtf8());
+    if(!doc.isObject())
+    {
+        qDebug() << "不是json数据";
+        return;
+    }
+    /*
+     * 这里协议规定一下
+     * 当获取的值为1时则是获取联系人列表
+     * 当获取的值为2时则是聊天内容转发
+     *
+     */
+    QJsonObject obj = doc.object();
+    int type = obj["type"].toInt();
+    qDebug() << type;
+    switch (type) {
+    case 1:
+        // 执行获取联系人列表
+        sendContacts(pClient);
+        break;
+    case 2:
+        // 执行消息转发
+        break;
+    }
 }
 
 void Widget::socketDisconnected()
@@ -74,6 +107,23 @@ void Widget::socketDisconnected()
                                    .arg(pClient->peerName())
                                    .arg(pClient->peerAddress().toString())
                                    .arg(pClient->peerPort()));
+    m_clients.removeOne(pClient);
+}
+
+void Widget::sendContacts(QWebSocket *pClient)
+{
+    // 获取联系人列表，暂时定为内网地址加端口
+    QJsonObject info;
+    QJsonArray contactArr;
+    for(int i=0; i<m_clients.size(); i++)
+    {
+        contactArr.append(QString("%1:%2").arg(pClient->peerAddress().toString()).arg(pClient->peerPort()));
+    }
+    info.insert("type", 1);
+    info.insert("contacts", contactArr);
+    QJsonDocument doc(info);
+    pClient->sendTextMessage(doc.toJson());
+
 }
 
 
