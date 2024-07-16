@@ -40,6 +40,7 @@ private:
 private:
     void sendContacts(QWebSocket* pClient);
     void sendMsg(QJsonObject obj, QWebSocket* pClient);
+    void sendOnlineStatus();
 };
 
 #endif // WIDGET_H

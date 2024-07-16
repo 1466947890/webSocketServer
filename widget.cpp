@@ -65,13 +65,17 @@ void Widget::newConnect()
     connect(pSocket, &QWebSocket::textMessageReceived, this, &Widget::processTextMessage);
     connect(pSocket, &QWebSocket::disconnected, this, &Widget::socketDisconnected);
     m_clients << pSocket;
+    // 给所有用户发布上线或者离线消息
+    sendOnlineStatus();
+
+
 }
 
 void Widget::processTextMessage(QString msg)
 {
     QWebSocket *pClient = qobject_cast<QWebSocket*> (sender());
-    QString receiveMsg = QString("clientID: %1:%2  received: %3").arg(pClient->peerAddress().toString()).arg(pClient->peerPort()).arg(msg);
-    ui->listWidget_reciveMsg->addItem(receiveMsg);
+//    QString receiveMsg = QString("clientID: %1:%2  received: %3").arg(pClient->peerAddress().toString()).arg(pClient->peerPort()).arg(msg);
+//    ui->listWidget_reciveMsg->addItem(receiveMsg);
     // 接下来对websocekt消息进行处理
     // 转换json数据为可读数据
     QJsonDocument doc = QJsonDocument::fromJson(msg.toUtf8());
@@ -109,6 +113,7 @@ void Widget::socketDisconnected()
                                    .arg(pClient->peerAddress().toString())
                                    .arg(pClient->peerPort()));
     m_clients.removeOne(pClient);
+    sendOnlineStatus();
 }
 
 void Widget::sendContacts(QWebSocket *pClient)
@@ -119,7 +124,10 @@ void Widget::sendContacts(QWebSocket *pClient)
     for(int i=0; i<m_clients.size(); i++)
     {
         QWebSocket* client = m_clients.at(i);
-        contactArr.append(QString("%1:%2").arg(client->peerAddress().toString()).arg(client->peerPort()));
+        if(pClient != client)
+        {
+           contactArr.append(QString("%1:%2").arg(client->peerAddress().toString()).arg(client->peerPort()));
+        }
     }
     info.insert("type", 1);
     info.insert("contacts", contactArr);
@@ -145,6 +153,40 @@ void Widget::sendMsg(QJsonObject obj, QWebSocket *pClient)
             obj.insert("from", contact);
             QJsonDocument doc(obj);
             client->sendTextMessage(doc.toJson());
+            break;
+        }
+    }
+    // 给服务器端加上信息
+    QString receiveMsg = QString("%1:%2 给 %3 发送消息：%4")
+            .arg(pClient->peerAddress().toString())
+            .arg(pClient->peerPort())
+            .arg(contact)
+            .arg(msg);
+
+    ui->listWidget_reciveMsg->addItem(receiveMsg);
+}
+
+void Widget::sendOnlineStatus()
+{
+    QJsonArray contactArr;
+    for(int i = 0; i < m_clients.size(); i++)
+    {
+        QWebSocket* client = m_clients.at(i);
+        contactArr.append(QString("%1:%2").arg(client->peerAddress().toString()).arg(client->peerPort()));
+    }
+    for(int i=0; i<m_clients.size(); i++)
+    {
+        QWebSocket* m_client = m_clients.at(i);
+        QString address = QString("%1:%2").arg(m_client->peerAddress().toString()).arg(m_client->peerPort());
+        QJsonObject info;
+        if(address == contactArr.at(i).toString())
+        {
+            QJsonArray arr = contactArr;
+            arr.removeAt(i);
+            info.insert("type", 1);
+            info.insert("contacts", arr);
+            QJsonDocument doc(info);
+            m_client->sendTextMessage(doc.toJson());
             break;
         }
     }
